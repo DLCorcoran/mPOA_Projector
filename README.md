@@ -11,27 +11,27 @@ Usage:
   load("betas")
   project(betas) -> mPoA_results.list
 
-Input:
-  betas:
+## Input:
+####  betas:
     Matrix or data.frame of beta values where rownames are probe ids and  
     column names should correspond to sample names.  
     N.B. ensure beta values are numeric  
     Missing values should be coded as 'NA'  
 
-  outputDirectory:  
+####  outputDirectory:  
     This should be a directory name to save the output (a .csv file per model analyzed).  
     By default, it is set to create a 'results' subdirectory in the current folder.  
     Changing this parameter to be blank "", or NA, will result in no files being generated  
   
-  proportionOfProbesRequired:  
+####  proportionOfProbesRequired:  
     This is the proportion of probes to have a non-missing value for both the sample to have a  
     mPoA calculated, as well as to determine if we can impute the mean from the current cohort  
     By default, this is set to 0.8  
   
-  modelEnvironmentLocation:   
+####  modelEnvironmentLocation:   
      This is the remote location of the environment containing the data for the models.  Do not adjust!  
   
-Output:  
+## Output:  
   [1] A list containing the mPoAs for each model  
   [2] If a <outputDirectory> is specified, it will generate, for each model,   
       a file of the following form: <outputdir>/<model>_results.csv  
