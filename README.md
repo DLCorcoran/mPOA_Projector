@@ -21,7 +21,7 @@ model weights, these functions compute the model's predictive score.
 ####  outputDirectory:  
     This should be a directory name to save the output (a .csv file per model analyzed).  
     By default, it is set to create a 'results' subdirectory in the current folder.  
-    Changing this parameter to be blank "", or NA, will result in no files being generated  
+    Changing this parameter to be NULL or NA will result in no files being generated  
   
 ####  proportionOfProbesRequired:  
     This is the proportion of probes to have a non-missing value for both the sample to have a  
@@ -33,6 +33,5 @@ model weights, these functions compute the model's predictive score.
   
 ## Output:  
   [1] A list containing the mPoAs for each model  
-  [2] If a 'outputDirectory' is specified, it will generate, for each model,   
-      a file of the following form: 'outputdir'/'model'_results.csv  
+  [2] If a 'outputDirectory' is specified, it will generate, for each model, a file of the following form: 'outputDirectory'/'model'_results.csv  
 
