@@ -4,7 +4,7 @@
 # model weights, these functions compute the model's predictive score.
 # 
 # Usage:
-#   source("projector.R")
+#   source("mPoAProjector.R")
 #   load("betas")
 #   project(betas)
 #
@@ -33,94 +33,111 @@
 #
 ####################################################################################################
 
-# First run the following functions:
-
-
-projector = function( betas, modelEnvironmentLocation="", pctProbesRequired=0.9 ) {
-  # Needed to download model environment
-  require(RCurl)
+projector = function( betas, proportionOfProbesRequired=0.8, outputDirectory="./", modelEnvironmentLocation="" ) {
+  # Remotely load model environment
+#  load_url(modelEnvironmentLocation)
   
-  # Download environment
-  
-  
-  
-  
-}
-
-projector = function(betas, modeldir="models", outdir="results") {
-  models = read_models(modeldir)
-  betas = t(check_betas(betas, models))
-
-  # Iterate through models and write scores
-  for (modelname in names(models)) {
-    model = models[[modelname]]
-    weights = model$weights
-    found = intersect(weights$probe, colnames(betas))
-    score = model$intercept + (betas[, found] %*% weights[found, "weight"])
-    write_score(score, found, model, modelname, outdir)
-  }
-}
-
-read_models = function(path) {
-  # Reads model weights
-  files = list.files(path, pattern=".tsv", full.names=TRUE)
-  names(files) = sub(".tsv", "", basename(files))
-  ret = lapply(files, function(fn) {
-    dat = read.csv(fn, sep="\t", header=FALSE, col.names=c("probe", "weight"), as.is=TRUE)
-    rownames(dat) = dat$probe
-    list(
-      "intercept"=dat["Intercept", "weight"],
-      "weights"=dat[setdiff(dat$probe, "Intercept"),])
+  # loop through models
+  model_results <- lapply(mPOA_Models$model_names, function(model_name) {
+    # make sure it has been converted to a matrix
+    if( !is.numeric(as.matrix(betas)) ) { stop("betas matrix/data.frame is not numeric!") }
+    probeOverlap <- length(which(rownames(betas) %in% mPOA_Models$model_probes[[model_name]])) / length(mPOA_Models$model_probes[[model_name]])
+    # make sure enough of the probes are present in the data file
+    if( probeOverlap < proportionOfProbesRequired ) { 
+      result <- rep(NA, ncol(betas))
+      names(result) <- colnames(betas)
+      result
+    } else {
+      # Work with a numeric matrix of betas
+      betas.mat <- as.matrix(betas[which(rownames(betas) %in% mPOA_Models$model_probes[[model_name]]),])
+      # If probes don't exist, we'll add them as rows of 'NA's
+      probesNotInMatrix <- mPOA_Models$model_probes[[model_name]][which(mPOA_Models$model_probes[[model_name]] %in% rownames(betas.mat) == F)]
+      if( length(probesNotInMatrix) > 0 ) {
+        for( probe in probesNotInMatrix ) {
+          tmp.mat <- matrix(NA, nrow=1, ncol=ncol(betas.mat))
+          rownames(tmp.mat) <- probe
+          colnames(tmp.mat) <- colnames(betas.mat)
+          betas.mat <- rbind(betas.mat, tmp.mat)
+        }
+      }
+      
+      # Identify samples with too many missing probes and remove them from the matrix
+      samplesToRemove <- colnames(betas.mat)[which(apply(betas.mat, 2, function(x) { length(which(is.na(x))) / length(x) > proportionOfProbesRequired}))]
+      if( length(samplesToRemove) > 0 ) {
+        betas.mat <- betas.mat[,-which(colnames(betas.mat) %in% samplesToRemove)]
+      }
+      if(ncol(betas.mat) > 0) { 
+        # Identify missingness on a probe level
+        pctValuesPresent <- apply( betas.mat, 1, function(x) { 1 - (length(which(is.na(x))) / length(x)) } )
+        # If they're missing values, but less than the proportion required, we impute to the cohort mean
+        if( length(which(pctValuesPresent < 1 & pctValuesPresent >= proportionOfProbesRequired)) > 0 ) {
+          betas.mat[which(pctValuesPresent < 1 & pctValuesPresent >= proportionOfProbesRequired),] <- t(apply( betas.mat[which(pctValuesPresent < 1 & pctValuesPresent >= proportionOfProbesRequired),], 1 , function(x) { 
+            x[is.na(x)] = mean( x, na.rm = TRUE )
+            x
+          }))
+        }
+        # If they're missing too many values, everyones value gets replaced with the mean from the Dunedin cohort
+        if( length(which(pctValuesPresent < proportionOfProbesRequired)) > 0 ) {
+          probesToReplaceWithMean <- rownames(betas.mat)[which(pctValuesPresent < proportionOfProbesRequired)]
+          for( probe in probesToReplaceWithMean ) {
+            betas.mat[probe,] <- rep(mPOA_Models$model_means[[model_name]][probe], ncol(betas.mat))
+          }
+        }
+        # Calculate score:
+        score = mPOA_Models$model_intercept[[model_name]] + rowSums(t(betas.mat[mPOA_Models$model_probes[[model_name]],]) %*% diag(mPOA_Models$model_weights[[model_name]]))
+        names(score) <- colnames(betas.mat)
+        if( length(samplesToRemove) > 0 ) {
+          score.tmp <- rep(NA, length(samplesToRemove))
+          names(score.tmp) <- samplesToRemove
+          score <- c(score, score.tmp)
+        }
+        score <- score[colnames(betas)]        
+        score
+      } else {
+        result <- rep(NA, ncol(betas.mat))
+        names(result) <- colnames(betas.mat)
+        result
+      }
+    }
   })
-  return(ret)
-}
-
-check_betas = function(betas, models) {
-  # Remove probes not in any model and deals with missing values
-  probes = unique(do.call(c, lapply(models, function(x) x$weights$probe)))
-  ret = betas[which(rownames(betas) %in% probes),]
-  ret = check_na(ret)
-  return(ret)
-}
-
-check_na = function(betas) {
-  # Removes probes with missing values in greater than 5% of samples 
-  # Imputes missing values for probes with at least 95% of samples 
-  maxmis = ncol(betas) * 0.05
-  hasna = apply(betas, 1, function(x) length(which(is.na(x))))
-
-  remove = names(which(hasna > maxmis))
-  if (length(remove) > 0) {
-    betas = betas[setdiff(rownames(betas), remove), ]
-  }
-
-  impute = names(which(hasna < maxmis & hasna > 0))
-  if (length(impute) > 0) {
-    betas[impute, ] = apply(betas[impute, ], 1, function(x) {
-      x[is.na(x)] = mean(x, na.rm=TRUE)
+  names(model_results) <- mPOA_Models$model_names
+  if( length(outputDirectory) > 0 & is.na(outputDirectory) == FALSE ) {
+    dir.create(outputDirectory, recursive=TRUE, showWarnings=FALSE)
+    sapply(mPOA_Models$model_names, function(model_name) {
+      results.df <- data.frame(SampleID=names(model_results[[model_name]]), mPoA=model_results[[model_name]])
+      write.table(results.df, file=paste0(outputDirectory, "/", model_name, "_results.csv"), sep=',', quote=FALSE, row.names=FALSE)
     })
   }
-  return(betas)
+  model_results
 }
 
-write_score = function(score, found, model, modelname, outdir) {
-  res = data.frame("id"=rownames(score), "score"=score[,1])
-  header = paste0(
-    "# Using ", length(found), " of ", nrow(model$weights), 
-    " selected probes\n# Intercept: ", model$intercept, "\n")
-
-  filename = file.path(outdir, paste0(modelname, ".csv"))
-  dir.create(outdir, recursive=TRUE, showWarnings=FALSE)
-  cat(header, file=filename, append=FALSE)
-  write.table(
-    res, file=filename, sep=',', append=TRUE, quote=FALSE, 
-    row.names=FALSE, col.names=FALSE)
+### Pulled from https://stackoverflow.com/questions/24846120/importing-data-into-r-rdata-from-github
+### Code to be able to load the environment file from github
+load_url <- function (url, ..., sha1 = NULL) {
+  # based very closely on code for devtools::source_url
+  stopifnot(is.character(url), length(url) == 1)
+  temp_file <- tempfile()
+  on.exit(unlink(temp_file))
+  request <- httr::GET(url)
+  httr::stop_for_status(request)
+  writeBin(httr::content(request, type = "raw"), temp_file)
+  file_sha1 <- digest::digest(file = temp_file, algo = "sha1")
+  if (is.null(sha1)) {
+    message("SHA-1 hash of file is ", file_sha1)
+  }
+  else {
+    if (nchar(sha1) < 6) {
+      stop("Supplied SHA-1 hash is too short (must be at least 6 characters)")
+    }
+    file_sha1 <- substr(file_sha1, 1, nchar(sha1))
+    if (!identical(file_sha1, sha1)) {
+      stop("SHA-1 hash of downloaded file (", file_sha1, 
+           ")\n  does not match expected value (", sha1, 
+           ")", call. = FALSE)
+    }
+  }
+  load(temp_file, envir = .GlobalEnv)
 }
 
-####################################################################################################
 
-# To generate the mPoA values, call the function "projector" with appropriate arguments.
-# For example, if DNA methylation beta values object is named "betas", 
-# call projector(betas, "mpoa_models")
 
-###################################################################################################
