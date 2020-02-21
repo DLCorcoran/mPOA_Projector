@@ -33,6 +33,6 @@ model weights, these functions compute the model's predictive score.
   
 ## Output:  
   [1] A list containing the mPoAs for each model  
-  [2] If a <outputDirectory> is specified, it will generate, for each model,   
-      a file of the following form: <outputdir>/<model>_results.csv  
+  [2] If a 'outputDirectory' is specified, it will generate, for each model,   
+      a file of the following form: 'outputdir'/'model'_results.csv  
 
