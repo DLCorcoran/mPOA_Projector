@@ -1,4 +1,4 @@
-# projector.R -- 20180522
+# mPoAProjector.R -- 20200220
 # 
 # Given a set of methylation beta values and directory containing the probe
 # model weights, these functions compute the model's predictive score.
@@ -6,36 +6,38 @@
 # Usage:
 #   source("mPoAProjector.R")
 #   load("betas")
-#   project(betas)
+#   project(betas) -> mPoA_results.list
 #
 # Input:
 #   betas:
 #     Matrix or data.frame of beta values where rownames are probe ids and
 #     column names should correspond to sample names.
 #     N.B. ensure beta values are numeric
-#   
-#   weights:
-#     Two column tab separated file, containing probes and weights of the model.
-#     a value for "Intercept" is expected.
-#     In this instance, this is the provided file "poa-all.tsv"
+#     Missing values should be coded as 'NA'
+#
+#   outputDirectory:
+#     This should be a directory name to save the output (a .csv file per model analyzed).
+#     By default, it is set to create a 'results' subdirectory in the current folder.
+#     Changing this parameter to be blank "", or NA, will result in no files being generated
 #  
-#   modeldir:
-#     Directory containing weights for all models.
-#     In this instance, this is the directory "mpoa_models", containing one file,
-#     and should be called explicitly under projector function.
+#   proportionOfProbesRequired:
+#     This is the proportion of probes to have a non-missing value for both the sample to have a
+#     mPoA calculated, as well as to determine if we can impute the mean from the current cohort
+#     By default, this is set to 0.8
 #  
-#   outputdir: 
-#     Directory to save output, created if it does not exist.
+#   modelEnvironmentLocation: 
+#     This is the remote location of the environment containing the data for the models.  Do not adjust!
 #  
 # Output:
-#   For each model a file of the following form will be generated:
-#   <outputdir>/<model>.csv
+#   [1] A list containing the mPoAs for each model
+#   [2] If a <outputDirectory> is specified, it will generate, for each model, 
+#       a file of the following form: <outputdir>/<model>_results.csv
 #
 ####################################################################################################
 
-projector = function( betas, proportionOfProbesRequired=0.8, outputDirectory="./", modelEnvironmentLocation="" ) {
+projector = function( betas, proportionOfProbesRequired=0.8, outputDirectory="./results/", modelEnvironmentLocation="https://raw.githubusercontent.com/DLCorcoran/mPOA_Projector/master/mPOA_Models.Rdata" ) {
   # Remotely load model environment
-#  load_url(modelEnvironmentLocation)
+  load_url(modelEnvironmentLocation)
   
   # loop through models
   model_results <- lapply(mPOA_Models$model_names, function(model_name) {
@@ -123,7 +125,7 @@ load_url <- function (url, ..., sha1 = NULL) {
   writeBin(httr::content(request, type = "raw"), temp_file)
   file_sha1 <- digest::digest(file = temp_file, algo = "sha1")
   if (is.null(sha1)) {
-    message("SHA-1 hash of file is ", file_sha1)
+    message("SHA-1 hash of mPOA_Models.Rdata file is ", file_sha1)
   }
   else {
     if (nchar(sha1) < 6) {
@@ -137,6 +139,7 @@ load_url <- function (url, ..., sha1 = NULL) {
     }
   }
   load(temp_file, envir = .GlobalEnv)
+  message("File loaded successfully!")
 }
 
 
