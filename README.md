@@ -6,11 +6,11 @@ mPoAProjector.R -- 20200220
 Given a set of methylation beta values and directory containing the probe
 model weights, these functions compute the model's predictive score.
  
-Usage:
-  source("mPoAProjector.R")
-  load("betas")
-  project(betas) -> mPoA_results.list
-
+#### Usage:
+  source("mPoAProjector.R")  
+  load("betas")  
+  project(betas) -> mPoA_results.list  
+  
 ## Input:
 ####  betas:
     Matrix or data.frame of beta values where rownames are probe ids and  
