@@ -9,7 +9,7 @@ model weights, these functions compute the model's predictive score.
 #### Usage:
   source("mPoAProjector.R")  
   load("betas")  
-  project(betas) -> mPoA_results.list  
+  projector(betas) -> mPoA_results.list  
   
 ## Input:
 ####  betas:
