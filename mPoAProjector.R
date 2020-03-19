@@ -72,11 +72,16 @@ projector = function( betas, proportionOfProbesRequired=0.8, outputDirectory="./
         # Identify missingness on a probe level
         pctValuesPresent <- apply( betas.mat, 1, function(x) { 1 - (length(which(is.na(x))) / length(x)) } )
         # If they're missing values, but less than the proportion required, we impute to the cohort mean
-        if( length(which(pctValuesPresent < 1 & pctValuesPresent >= proportionOfProbesRequired)) > 0 ) {
-          betas.mat[which(pctValuesPresent < 1 & pctValuesPresent >= proportionOfProbesRequired),] <- t(apply( betas.mat[which(pctValuesPresent < 1 & pctValuesPresent >= proportionOfProbesRequired),], 1 , function(x) { 
-            x[is.na(x)] = mean( x, na.rm = TRUE )
-            x
-          }))
+        probesToAdjust <- which(pctValuesPresent < 1 & pctValuesPresent >= proportionOfProbesRequired)
+        if( length(probesToAdjust) > 0 ) {
+          if( length(probesToAdjust) > 1 ) {
+            betas.mat[probesToAdjust,] <- t(apply( betas.mat[probesToAdjust,], 1 , function(x) { 
+              x[is.na(x)] = mean( x, na.rm = TRUE )
+              x
+            }))
+          } else {
+            betas.mat[probesToAdjust,which(is.na(betas.mat[probesToAdjust,]))] <- mean(betas.mat[probesToAdjust,], na.rm=T)
+          }
         }
         # If they're missing too many values, everyones value gets replaced with the mean from the Dunedin cohort
         if( length(which(pctValuesPresent < proportionOfProbesRequired)) > 0 ) {
