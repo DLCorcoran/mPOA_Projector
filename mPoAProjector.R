@@ -108,7 +108,7 @@ projector = function( betas, proportionOfProbesRequired=0.8, outputDirectory="./
     }
   })
   names(model_results) <- mPOA_Models$model_names
-  if( length(outputDirectory) > 0 & is.na(outputDirectory) == FALSE ) {
+  if( nchar(outputDirectory) > 0 & is.na(outputDirectory) == FALSE ) {
     dir.create(outputDirectory, recursive=TRUE, showWarnings=FALSE)
     sapply(mPOA_Models$model_names, function(model_name) {
       results.df <- data.frame(SampleID=names(model_results[[model_name]]), mPoA=model_results[[model_name]])
